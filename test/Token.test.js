@@ -1,5 +1,3 @@
-const { entries, result } = require("lodash");
-const { isValidElement } = require("react");
 var web3 = require("web3");
 
 // eslint-disable-next-line no-undef
@@ -62,13 +60,13 @@ contract('Token', ([deployer, reciever, exchange]) => {
         beforeEach(async () => {
             amount = tokens(100)
             result = await token.transfer(reciever, amount, {from: deployer})
+            await token.approve(exchange, amount, { from: deployer })
+            //result = await token.transfer(reciever, amount, {from: deployer})
         })
 
         it('transfers token balance', async () => {
             let balanceOf = await token.balanceOf(deployer);
-            console.log('deployer alance', balanceOf.toString())
             balanceOf = await token.balanceOf(reciever)
-            console.log('reciever balance', balanceOf.toString())
             await token.transfer(reciever, tokens(100), {from: deployer})
             balanceOf = await token.balanceOf(deployer);
             balanceOf.toString().should.equal(tokens(999800).toString())
@@ -97,7 +95,7 @@ contract('Token', ([deployer, reciever, exchange]) => {
         let amount;
 
         beforeEach(async () => {
-            amount = tokens{100};
+            amount = tokens(100)
             result = await token.approve(exchange, amount, {from: deployer});
         })
 
@@ -105,6 +103,27 @@ contract('Token', ([deployer, reciever, exchange]) => {
             it('allocates an allowance for delegated token spending on exchange', async () => {
                 const allowance = await token.allowance(deployer, exchange)
                 allowance.toString().should.equal(amount.toString());
+            })
+
+            it('emits a approval event', async () => {
+                const log = result.logs[0]
+                log.event.should.eq("Approval")
+                const event = log.args
+                event._owner.toString().should.equal(deployer, 'owner is correct')
+                event._spender.should.equal(exchange, 'spender is correct')
+                event.value.toString().should.equal(amount.toString(), 'value is correct')
+            })
+
+        })
+
+        describe('failure', () => {
+            it('rejects invalid senders', async () => {
+                await token.approve(0x0, amount, {from: deployer }).should.be.rejected;
+            })
+
+            it('rejects insufficient amounts', async () => {
+                const invalidAmount = tokens(1000000000);
+                await token.transferFrom(deployer, reciever, invalidAmount, {from: exchange}).should.be.rejected;
             })
         })
     })
